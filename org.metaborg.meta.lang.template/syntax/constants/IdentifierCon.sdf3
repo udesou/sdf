@@ -5,6 +5,34 @@ lexical syntax
 //head:[A-Za-z] tail:[A-Za-z\-0-9]* -> IdCon {cons("default")}
 IdCon.Default = [A-Za-z][A-Za-z\-\_0-9]* 
 
+IdCon = StrategoKeyword {reject}
+
+StrategoKeyword = "imports"
+StrategoKeyword = "overlays"
+StrategoKeyword = "rules"
+StrategoKeyword = "signature"
+StrategoKeyword = "strategies"
+StrategoKeyword = "all"
+StrategoKeyword = "constructors"
+StrategoKeyword = "fail"
+StrategoKeyword = "id"
+StrategoKeyword = "in"
+StrategoKeyword = "let"
+StrategoKeyword = "module"
+StrategoKeyword = "not"
+StrategoKeyword = "one"
+StrategoKeyword = "prim"
+StrategoKeyword = "rules"
+StrategoKeyword = "script"
+StrategoKeyword = "some"
+StrategoKeyword = "sorts"
+StrategoKeyword = "stratego"
+StrategoKeyword = "test"
+StrategoKeyword = "where"
+StrategoKeyword = "import-term"
+
+
+
 lexical restrictions
 
 IdCon -/- [A-Za-z\-0-9]
