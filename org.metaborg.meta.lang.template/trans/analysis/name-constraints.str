@@ -53,11 +53,25 @@ rules
       msg := "In Stratego, Nil is the empty list, and Nil() does not match this constructor (use a different constructor name)";
       <task-create-error(|ctx, msg)> c
 
-    nabl-constraint(|ctx):
-    SortCons(s, c@Constructor("Cons")) -> <fail>
+  nabl-constraint(|ctx):
+  SortCons(s, c@Constructor("Cons")) -> <fail>
     where
       msg := "In Stratego, Cons is the list constructor, and Cons(_) does not match this constructor (use a different constructor name)";
       <task-create-error(|ctx, msg)> c
+      
+  nabl-constraint(|ctx):
+  t@Term(Default(Appl(Unquoted("cons"), [Fun(Quoted(cons))]))) -> <fail>
+    where
+        [<is-lower> | hs] := <explode-string> cons;
+        msg := "As a convention, constructor names should start with a capital letter";
+        <task-create-warning(|ctx, msg)> t
+
+  nabl-constraint(|ctx):
+    SortCons(s, c@Constructor(cons)) -> <fail>
+    where
+      [<is-lower> | hs] := <explode-string> cons;
+      msg := "As a convention, constructor names should start with a capital letter";
+      <task-create-warning(|ctx, msg)> c
     
     nabl-constraint(|ctx):
       sc@SortConsRef(Sort(s), Constructor(c)) -> <fail>
@@ -153,7 +167,7 @@ rules
             illegal-brackets* := <filter(prod-with-illegal-brackets)> p'*;
             maybe-brackets*   := <filter(prod-maybe-brackets)> p'*;
             <map(task-create-warning(|ctx, $[Missing constructor name: the generated pretty printer might not work properly]))> prods-wo-cons*;
-            <map(task-create-error(|ctx, $[Missing bracket attribute or constructor name]))> maybe-brackets*;
+            <map(task-create-warning(|ctx, $[Missing bracket attribute or constructor name]))> maybe-brackets*;
             <map(task-create-error(|ctx, $[Regular symbols (A*, A+ and A?) can be applied only to sorts in context-free syntax]))> weird-symbols*;
             <map(task-create-warning(|ctx, $[Illegal use of the {bracket} attribute]))> illegal-brackets*
 
