@@ -15,6 +15,7 @@ import org.metaborg.sdf2table.symbol.Alternative;
 import org.metaborg.sdf2table.symbol.CharClass;
 import org.metaborg.sdf2table.symbol.ContextFree;
 import org.metaborg.sdf2table.symbol.FileStart;
+import org.metaborg.sdf2table.symbol.Followed;
 import org.metaborg.sdf2table.symbol.Iteration;
 import org.metaborg.sdf2table.symbol.Layout;
 import org.metaborg.sdf2table.symbol.Lexical;
@@ -131,13 +132,7 @@ public class Importer{
 			case "Seq":
 				Terminal head = importTerminal(app.getSubterm(0));
 				for(CharClass tail : importLookaheadList(app.getSubterm(1))){
-					if(tail instanceof Sequence){
-						set.add(new Sequence(head, ((Sequence)tail).symbols()));
-					}else if(tail instanceof Terminal){
-						set.add(new Sequence(head, (Terminal)tail));
-					}else{
-						System.err.println("In sequence: `"+tail.toString()+"' is not a terminal.");
-					}
+					set.add(new Followed(head, (CharClass)tail));
 				}
 				break;
 			// TERMINALS
@@ -253,7 +248,9 @@ public class Importer{
 				// Read right hand side of the equation: Rhs([<symbols>])
 				StrategoList rhs = (StrategoList)app.getSubterm(1).getSubterm(0);
 				for(IStrategoTerm t : rhs){
-					sym_list.add(importSymbol(syntax.symbols(), t));
+					Symbol s = importSymbol(syntax.symbols(), t);
+					if(s != null)
+						sym_list.add(s);
 				}
 				
 				// Read attributes
@@ -353,7 +350,9 @@ public class Importer{
 			StrategoList slist = (StrategoList)term;
 			
 			for(IStrategoTerm t : slist){
-				list.add(importSymbol(collection, t));
+				Symbol s = importSymbol(collection, t);
+				if(s != null)
+					list.add(s);
 			}
 		}else{
 			System.err.println("sdf2table : Symbol.fromStrategoList: this term is not a list.");
@@ -396,7 +395,7 @@ public class Importer{
 				symbol = new Alternative(importSymbol(null, app.getSubterm(0)), importSymbol(null, app.getSubterm(1)));
 				break;
 			case "Sequence":
-				symbol = new Sequence(importSymbol(null, app.getSubterm(0)), importSymbol(null, app.getSubterm(1)));
+				symbol = new Sequence(importSymbol(null, app.getSubterm(0)), importSymbolList(null, app.getSubterm(1)));
 				break;
 			case "Lex":
 				symbol = new Lexical(importSymbol(null, app.getSubterm(0)));
@@ -431,7 +430,7 @@ public class Importer{
 			return null;
 		}
 		
-		if(collection != null)
+		if(collection != null && symbol != null)
 			symbol = collection.get(symbol, true);
 		
 		return symbol;
@@ -441,6 +440,8 @@ public class Importer{
 		if(term instanceof StrategoAppl){
 			StrategoAppl app = (StrategoAppl)term;
 			switch(app.getName()){
+			case "Absent":
+				return null;
 			case "Simple":
 				return importTerminal(app.getSubterm(0));
 			case "Present":
