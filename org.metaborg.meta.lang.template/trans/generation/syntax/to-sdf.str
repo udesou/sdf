@@ -8,7 +8,6 @@ imports
   utils/misc
   utils/tokenize
   names/analysis/names
-  runtime/nabl/utils
   analysis/attributes
   analysis/desugar
   pp/layout-constraints/Layout-Constraints-pp
@@ -113,7 +112,7 @@ rules
 
   //productive productions section
   section-to-sdf(|chars, newline, kfr, kattrs):
-  	SDFSection(ContextFreeSyntax(prods*)) -> [context-free-syntax(prods'), lexical-syntax(reject-prods*), plhdr-prods*, restr*]
+  	SDFSection(ContextFreeSyntax(prods*)) -> [context-free-syntax(prods'), lexical-syntax(reject-prods*), plhdr-prods*, plhdr-restr*, restr*]
   	with
   		prods' := <map(prod-to-sdf <+ prod-to-sdf(|chars, newline))> prods*;
   		// explicit placeholder prods
@@ -121,9 +120,14 @@ rules
                         ; nub> prods*;
       plhdr*     := <map(sort-to-plhdr-prod); term-translation> sorts*;
       if [] := sorts* then
-              plhdr-prods* := []
+              plhdr-prods* := [];
+              plhdr-restr* := []
           else
-              plhdr-prods* := [context-free-syntax([plhdr*])]
+              (left-placeholder-chars, right-placeholder-chars) := <placeholder-chars>;
+              plhdr-prods* := [context-free-syntax([plhdr*])];
+              plhdr-restr* := [lexical-restrictions([follow(<map(!lit(<concat-strings> [left-placeholder-chars, <id>, right-placeholder-chars]))> sorts*, single(char-class(simple-charclass(
+                                                                                            present(conc(range(short("a"), short("z")), 
+                                                                                                         range(short("A"), short("Z"))))))))])]
           end;                    
       // lexical restrictions
       x    := <filter(case-sensitive-template-prods); nub> prods*;
@@ -549,7 +553,7 @@ rules //conversion of SDF3 terms into SDF2
     Sequence(t1, t2*) -> seq(t1, t2*)
 
   special-term-to-sdf:
-    LayoutConstraint(constr) -> term(default(appl(unquoted("layout"), [fun(quoted($["[<prettyprint-Constraint; !V([], <id>); box2text-string(|120)> constr]"]))])))
+    LayoutConstraint(constr) -> term(default(appl(unquoted("layout"), [fun(quoted($["[<prettyprint-TemplateLang-Constraint; !V([], <id>); box2text-string(|120)> constr]"]))])))
 
   special-term-to-sdf:
     IgnoreLayout() -> term(default(fun(unquoted("ignore-layout"))))
@@ -571,6 +575,10 @@ rules //conversion of SDF3 terms into SDF2
     
   special-term-to-sdf:
     LiteralCompletion() -> term(default(fun(unquoted("literal-completion"))))         
+    
+  special-term-to-sdf:
+    NewLongestMatch() -> term(default(fun(unquoted("nlm"))))      
+  
     
   terms-to-sdf:
     [term | tail] -> <id>
