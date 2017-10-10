@@ -6,8 +6,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
-import org.metaborg.sdf2table.parsetable.ContextualProduction;
-import org.metaborg.sdf2table.parsetable.ContextualSymbol;
+import org.metaborg.sdf2table.deepconflicts.ContextualProduction;
+import org.metaborg.sdf2table.deepconflicts.ContextualSymbol;
 
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;

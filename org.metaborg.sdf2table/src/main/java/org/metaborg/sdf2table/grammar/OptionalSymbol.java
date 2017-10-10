@@ -3,7 +3,7 @@ package org.metaborg.sdf2table.grammar;
 import java.util.Map;
 import java.util.Set;
 
-import org.metaborg.sdf2table.parsetable.Context;
+import org.metaborg.sdf2table.deepconflicts.Context;
 import org.spoofax.interpreter.terms.IStrategoTerm;
 import org.spoofax.interpreter.terms.ITermFactory;
 
@@ -19,6 +19,10 @@ public class OptionalSymbol extends Symbol {
         this.symbol = symbol;
         followRestrictionsLookahead = Lists.newArrayList();
         followRestrictionsNoLookahead = null;
+    }
+    
+    public Symbol getSymbol() {
+        return symbol;
     }
     
     @Override public String name() {

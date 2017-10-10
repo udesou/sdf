@@ -4,14 +4,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import org.metaborg.sdf2table.parsetable.Context;
+import org.metaborg.sdf2table.deepconflicts.Context;
+import org.metaborg.sdf2table.jsglrinterfaces.ISGLRCharacters;
 import org.spoofax.interpreter.terms.IStrategoList;
 import org.spoofax.interpreter.terms.IStrategoTerm;
 import org.spoofax.interpreter.terms.ITermFactory;
 
 import com.google.common.collect.Lists;
 
-public class CharacterClass extends Symbol {
+public class CharacterClass extends Symbol implements ISGLRCharacters {
 
     private static final long serialVersionUID = 1619024888383357090L;
 
@@ -23,6 +24,10 @@ public class CharacterClass extends Symbol {
 
     public CharacterClass(Symbol s) {
         this.cc = s;
+    }
+
+    public Symbol getCharacterClass() {
+        return cc;
     }
 
     public static CharacterClass union(CharacterClass... ary) {
@@ -45,7 +50,7 @@ public class CharacterClass extends Symbol {
             if(c <= _max) {
                 ok = false;
                 for(CharacterClass cc : ary) {
-                    if(cc.contains(c)) {
+                    if(cc.containsCharacter(c)) {
                         ok = true; // valid.
                         break;
                     }
@@ -96,7 +101,7 @@ public class CharacterClass extends Symbol {
             if(c <= _max) {
                 ok = true;
                 for(CharacterClass cc : ary) {
-                    if(!cc.contains(c)) {
+                    if(!cc.containsCharacter(c)) {
                         ok = false; // invalid.
                         break;
                     }
@@ -129,16 +134,16 @@ public class CharacterClass extends Symbol {
         return new CharacterClass(rt);
     }
 
-    public boolean contains(int c) {
+    @Override public boolean containsCharacter(int character) {
         if(cc == null)
             return false;
 
         if(cc instanceof CharacterClassNumeric) {
-            return ((CharacterClassNumeric) cc).contains(c);
+            return ((CharacterClassNumeric) cc).contains(character);
         } else if(cc instanceof CharacterClassRange) {
-            return ((CharacterClassRange) cc).contains(c);
+            return ((CharacterClassRange) cc).contains(character);
         } else {
-            return ((CharacterClassConc) cc).contains(c);
+            return ((CharacterClassConc) cc).contains(character);
         }
     }
 
@@ -243,6 +248,11 @@ public class CharacterClass extends Symbol {
         }
         return tf.makeList(cc_aterm);
     }
+    
+//    public boolean contains(int c) {
+//        if (cc == null) return false;
+//        return ((CharacterClass) cc).contains(c);
+//    }
 
     @Override public IStrategoTerm toSDF3Aterm(ITermFactory tf,
         Map<Set<Context>, Integer> ctx_vals, Integer ctx_val) {

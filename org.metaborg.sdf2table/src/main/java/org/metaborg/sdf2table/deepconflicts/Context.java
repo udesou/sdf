@@ -1,4 +1,4 @@
-package org.metaborg.sdf2table.parsetable;
+package org.metaborg.sdf2table.deepconflicts;
 
 import java.io.Serializable;
 

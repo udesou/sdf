@@ -1,4 +1,4 @@
-package org.metaborg.sdf2table.parsetable;
+package org.metaborg.sdf2table.deepconflicts;
 
 import java.util.List;
 import java.util.Set;
@@ -15,6 +15,7 @@ import org.metaborg.sdf2table.grammar.Priority;
 import org.metaborg.sdf2table.grammar.Production;
 import org.metaborg.sdf2table.grammar.Symbol;
 import org.metaborg.sdf2table.grammar.UniqueProduction;
+import org.metaborg.sdf2table.parsetable.ParseTable;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;

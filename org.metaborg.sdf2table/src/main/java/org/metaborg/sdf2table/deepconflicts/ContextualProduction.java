@@ -1,4 +1,4 @@
-package org.metaborg.sdf2table.parsetable;
+package org.metaborg.sdf2table.deepconflicts;
 
 import java.io.Serializable;
 import java.util.List;
@@ -25,7 +25,7 @@ public class ContextualProduction implements IProduction, Serializable {
     private final IProduction orig_prod;
     private final Symbol lhs;
     private final List<Symbol> rhs;
-
+    
     public ContextualProduction(IProduction orig_prod, Symbol lhs, List<Symbol> rhs) {
         this.orig_prod = orig_prod;
         this.lhs = lhs;
@@ -380,4 +380,5 @@ public class ContextualProduction implements IProduction, Serializable {
             return false;
         return true;
     }
+
 }

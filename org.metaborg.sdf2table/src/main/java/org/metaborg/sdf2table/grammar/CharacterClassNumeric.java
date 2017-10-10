@@ -3,7 +3,7 @@ package org.metaborg.sdf2table.grammar;
 import java.util.Map;
 import java.util.Set;
 
-import org.metaborg.sdf2table.parsetable.Context;
+import org.metaborg.sdf2table.deepconflicts.Context;
 import org.spoofax.interpreter.terms.IStrategoTerm;
 import org.spoofax.interpreter.terms.ITermFactory;
 
@@ -41,7 +41,7 @@ public class CharacterClassNumeric extends Symbol {
 
     public CharacterClass difference(CharacterClass[] ary) {
         for(CharacterClass r : ary) {
-            if(r.contains(getCharacter()))
+            if(r.containsCharacter(getCharacter()))
                 return new CharacterClass(null);
         }
         return new CharacterClass(this);
