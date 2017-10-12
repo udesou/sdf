@@ -77,7 +77,7 @@ public class ParseTable implements ISGLRParseTable, Serializable {
     private List<ISGLRProduction> productions = Lists.newArrayList();
     Map<IProduction, ParseTableProduction> productionsMapping = Maps.newHashMap();
 
-    public ParseTable(NormGrammar grammar, boolean dynamic, boolean dataDependent) {
+    public ParseTable(NormGrammar grammar, boolean dynamic, boolean dataDependent, boolean solveDeepConflicts) {
         this.grammar = grammar;
         this.dataDependent = dataDependent;
 
@@ -92,9 +92,10 @@ public class ParseTable implements ISGLRParseTable, Serializable {
 
         // calculate deep priority conflicts based on current priorities
         // and generate contextual productions
-        // DeepConflictsAnalyzer.deepConflictAnalysis(this);
-        DeepConflictsAnalyzer.deepConflictAnalysis(this, false, false, false);
-
+        if(solveDeepConflicts) {
+            DeepConflictsAnalyzer.deepConflictAnalysis(this);
+        }
+        
         productionLabels = createLabels(grammar.getUniqueProductionMapping(), grammar.getProdContextualProdMapping());
 
         // create states if the table should not be generated dynamically
@@ -677,7 +678,8 @@ public class ParseTable implements ISGLRParseTable, Serializable {
         this.symbolStatesMapping = symbolStatesMapping;
     }
 
-    @Override public List<ISGLRProduction> productions() {
+    @Override
+    public List<ISGLRProduction> productions() {
         return productions;
     }
 

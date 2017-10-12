@@ -63,7 +63,13 @@ public class ParseTableGenerator {
 
     public void createParseTable(boolean dynamic, boolean dataDependent) throws Exception {
         NormGrammar grammar = new GrammarReader(termFactory).readGrammar(input, paths);
-        pt = new ParseTable(grammar, dynamic, dataDependent);
+        pt = new ParseTable(grammar, dynamic, dataDependent, true);
+        tableCreated = true;
+    }
+
+    public void createParseTable(boolean dynamic, boolean dataDependent, boolean solveDeepConflicts) throws Exception {
+        NormGrammar grammar = new GrammarReader(termFactory).readGrammar(input, paths);
+        pt = new ParseTable(grammar, dynamic, dataDependent, solveDeepConflicts);
         tableCreated = true;
     }
 
@@ -134,7 +140,7 @@ public class ParseTableGenerator {
     private IStrategoTerm generateStatesAterm(ParseTable pt) {
         List<IStrategoTerm> terms = Lists.newArrayList();
         for(int i = 0; i < pt.totalStates(); i++) {
-            ISGLRState s = pt.stateLabels().get(i);            
+            ISGLRState s = pt.stateLabels().get(i);
             List<IStrategoTerm> goto_terms = Lists.newArrayList();
             List<IStrategoTerm> action_terms = Lists.newArrayList();
             for(ISGLRGoto goto_action : s.gotos()) {
