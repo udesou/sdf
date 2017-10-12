@@ -1,13 +1,13 @@
 package org.metaborg.sdf2table.parsetable;
 
 import java.io.Serializable;
+import java.util.BitSet;
 import java.util.List;
 import java.util.Set;
 
 import org.metaborg.sdf2table.deepconflicts.ContextualProduction;
 import org.metaborg.sdf2table.grammar.AltSymbol;
 import org.metaborg.sdf2table.grammar.CharacterClass;
-import org.metaborg.sdf2table.grammar.CharacterClassRange;
 import org.metaborg.sdf2table.grammar.ConstructorAttribute;
 import org.metaborg.sdf2table.grammar.ContextFreeSymbol;
 import org.metaborg.sdf2table.grammar.GeneralAttribute;
@@ -166,9 +166,9 @@ public class ParseTableProduction implements ISGLRProduction, Serializable {
         for(Symbol s : rhs) {
             s = getFirstRange(s);
             if(s instanceof CharacterClass) {
-                if(((CharacterClass) s).getCharacterClass() instanceof CharacterClassRange) {
-                    CharacterClassRange cc = (CharacterClassRange) ((CharacterClass) s).getCharacterClass();
-                    if(cc.minimum() == '0' && cc.maximum() == '9') {
+                BitSet bs = ((CharacterClass) s).getBitSet();
+                if(bs != null) {
+                    if(bs.get(48, 58).cardinality() == 10) {
                         return (CharacterClass) s;
                     }
                 } else {

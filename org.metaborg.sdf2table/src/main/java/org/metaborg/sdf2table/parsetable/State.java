@@ -2,11 +2,11 @@ package org.metaborg.sdf2table.parsetable;
 
 import java.io.Serializable;
 import java.util.Arrays;
+import java.util.BitSet;
 import java.util.Map;
 import java.util.Set;
 
 import org.metaborg.sdf2table.grammar.CharacterClass;
-import org.metaborg.sdf2table.grammar.CharacterClassNumeric;
 import org.metaborg.sdf2table.grammar.IProduction;
 import org.metaborg.sdf2table.grammar.Symbol;
 import org.metaborg.sdf2table.jsglrinterfaces.ISGLRAction;
@@ -134,11 +134,11 @@ public class State implements ISGLRState, Comparable<State>, Serializable {
 
                 if(item.getProd().leftHand().followRestriction() == null
                     || item.getProd().leftHand().followRestriction().equals(CharacterClass.emptyCC)) {
-                    addReduceAction(item.getProd(), prod_label, CharacterClass.maxCC, null);
+                    addReduceAction(item.getProd(), prod_label, CharacterClass.getFullCharacterClass(), null);
                 } else {
                     // Not based on first and follow sets thus, only considering the follow restrictions
-                    CharacterClass final_range =
-                        CharacterClass.maxCC.difference(item.getProd().leftHand().followRestriction());
+                    CharacterClass final_range = CharacterClass.getFullCharacterClass()
+                        .difference(item.getProd().leftHand().followRestriction());
                     for(CharacterClass[] s : item.getProd().leftHand().followRestrictionLookahead()) {
                         final_range.difference(s[0]);
 
@@ -151,7 +151,9 @@ public class State implements ISGLRState, Comparable<State>, Serializable {
             }
             // <Start> = <START> . EOF
             if(item.getProd().equals(pt.initialProduction()) && item.getDotPosition() == 1) {
-                lr_actions.put(new CharacterClass(new CharacterClassNumeric(256)), new Accept(new CharacterClass(new CharacterClassNumeric(256))));
+                BitSet bs = new BitSet(257);
+                bs.set(256);
+                lr_actions.put(new CharacterClass(bs), new Accept(new CharacterClass(bs)));
             }
         }
     }
@@ -218,7 +220,8 @@ public class State implements ISGLRState, Comparable<State>, Serializable {
         }
     }
 
-    @Override public String toString() {
+    @Override
+    public String toString() {
         String buf = "";
         int i = 0;
         buf += "State " + getLabel();
@@ -273,14 +276,16 @@ public class State implements ISGLRState, Comparable<State>, Serializable {
         return buf;
     }
 
-    @Override public int hashCode() {
+    @Override
+    public int hashCode() {
         final int prime = 31;
         int result = 1;
         result = prime * result + ((kernel == null) ? 0 : kernel.hashCode());
         return result;
     }
 
-    @Override public boolean equals(Object obj) {
+    @Override
+    public boolean equals(Object obj) {
         if(this == obj)
             return true;
         if(obj == null)
@@ -296,7 +301,8 @@ public class State implements ISGLRState, Comparable<State>, Serializable {
         return true;
     }
 
-    @Override public int compareTo(State o) {
+    @Override
+    public int compareTo(State o) {
         return this.getLabel() - o.getLabel();
     }
 
@@ -323,15 +329,18 @@ public class State implements ISGLRState, Comparable<State>, Serializable {
         this.setStatus(StateStatus.DIRTY);
     }
 
-    @Override public int stateNumber() {
+    @Override
+    public int stateNumber() {
         return label;
     }
 
-    @Override public Set<ISGLRGoto> gotos() {
+    @Override
+    public Set<ISGLRGoto> gotos() {
         return gotos;
     }
 
-    @Override public Iterable<ISGLRAction> actions() {
+    @Override
+    public Iterable<ISGLRAction> actions() {
         Set<ISGLRAction> actions = Sets.newHashSet(lr_actions.values());
         return actions;
     }
@@ -340,12 +349,14 @@ public class State implements ISGLRState, Comparable<State>, Serializable {
         return lr_actions;
     }
 
-    @Override public boolean isRejectable() {
+    @Override
+    public boolean isRejectable() {
         // TODO implement this
         return false;
     }
 
-    @Override public Iterable<ISGLRAction> applicableActions(int character) {
+    @Override
+    public Iterable<ISGLRAction> applicableActions(int character) {
         Set<ISGLRAction> applicableActions = Sets.newHashSet();
         for(CharacterClass cc : lr_actions.keySet()) {
             if(cc.containsCharacter(character)) {
@@ -355,7 +366,8 @@ public class State implements ISGLRState, Comparable<State>, Serializable {
         return applicableActions;
     }
 
-    @Override public Iterable<ISGLRReduce> applicableReduceActions(int character) {
+    @Override
+    public Iterable<ISGLRReduce> applicableReduceActions(int character) {
         Set<ISGLRReduce> reduceActions = Sets.newHashSet();
         for(CharacterClass cc : lr_actions.keySet()) {
             if(cc.containsCharacter(character)) {
@@ -364,13 +376,14 @@ public class State implements ISGLRState, Comparable<State>, Serializable {
                         reduceActions.add((ISGLRReduce) action);
                     }
                 }
-                
+
             }
         }
         return reduceActions;
     }
 
-    @Override public ISGLRGoto getGoto(int productionNumber) {
+    @Override
+    public ISGLRGoto getGoto(int productionNumber) {
         return gotosMapping.get(productionNumber);
     }
 
