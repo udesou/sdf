@@ -145,13 +145,13 @@ public class DeepConflictsAnalyzer {
 
             if(danglingElse) {
                 // dangling else conflict
-                if(higher.leftRecursivePosition() == -1 // higher has prefix
-                    && lower.leftRecursivePosition() == -1) { // lower is prefix
+                if(!higher.equals(lower) && higher.rightRecursivePosition() != -1 // higher is right recursive
+                    && lower.rightRecursivePosition() != -1) { // lower is right recursive
                     handleDanglingElseConflict(pt, prio, higher, lower);
 
                 } // mirrored dangling else conflict
-                else if(higher.rightRecursivePosition() == -1 // higher has postfix
-                    && lower.rightRecursivePosition() == -1) { // lower is postfix
+                else if(!higher.equals(lower) && higher.leftRecursivePosition() != -1 // higher is left recursive
+                    && lower.leftRecursivePosition() != -1) { // lower is right recursive
                     handleMirroredDanglingElseConflict(pt, prio, higher, lower);
                 }
             }           
@@ -258,9 +258,11 @@ public class DeepConflictsAnalyzer {
 
     private void handleDanglingElseConflict(ParseTable pt, IPriority prio, IProduction higher, IProduction lower) {
         boolean matchPrefix = false;
+        
+        Set<Integer> conflicts = pt.normalizedGrammar().priorities().get(prio);
 
         for(int conflict : pt.normalizedGrammar().priorities().get(prio)) {
-            if(lower.rightHand().size() < conflict - 1)
+            if(lower.rightHand().size() != conflict+1)
                 continue;
             for(int i = 0; i <= conflict; i++) {
                 if(higher.rightHand().get(i).equals(lower.rightHand().get(i))) {

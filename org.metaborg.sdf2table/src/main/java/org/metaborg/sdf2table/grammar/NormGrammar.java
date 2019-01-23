@@ -35,6 +35,9 @@ public class NormGrammar implements INormGrammar, Serializable {
 
     // merging same productions with different attributes
     private SetMultimap<IProduction, IAttribute> productionAttributesMapping;
+    
+    // constructor attributes
+    private Map<IProduction, ConstructorAttribute> constructors;
 
     // necessary for calculating deep priority conflicts
     private Map<UniqueProduction, IProduction> uniqueProductionMapping;
@@ -44,6 +47,7 @@ public class NormGrammar implements INormGrammar, Serializable {
     private SetMultimap<Symbol, Symbol> leftRecursiveSymbolsMapping;
     private SetMultimap<Symbol, Symbol> rightRecursiveSymbolsMapping;
     private SetMultimap<Symbol, IProduction> longestMatchProds;
+    private SetMultimap<Symbol, IProduction> shortestMatchProds;
 
     // priorities
     private Set<IPriority> transitivePriorities;
@@ -73,8 +77,10 @@ public class NormGrammar implements INormGrammar, Serializable {
         this.setDerivedContextualProds(Sets.newHashSet());
         this.setContextualSymbols(Sets.newHashSet());
         this.setLongestMatchProds(LinkedHashMultimap.create());
+        this.setShortestMatchProds(LinkedHashMultimap.create());
         this.setProductionAttributesMapping(HashMultimap.create());
         this.priorities = HashMultimap.create();
+        this.setConstructors(Maps.newHashMap());
         this.setTransitivePriorities(Sets.newHashSet());
         this.setNonTransitivePriorities(Sets.newHashSet());
         this.setProductionsOnPriorities(Sets.newHashSet());
@@ -349,6 +355,26 @@ public class NormGrammar implements INormGrammar, Serializable {
             s.normalizeFollowRestrictionLookahead();
         }
 
+    }
+
+
+    public Map<IProduction, ConstructorAttribute> getConstructors() {
+        return constructors;
+    }
+
+
+    public void setConstructors(Map<IProduction, ConstructorAttribute> constructors) {
+        this.constructors = constructors;
+    }
+
+
+    public SetMultimap<Symbol, IProduction> getShortestMatchProds() {
+        return shortestMatchProds;
+    }
+
+
+    public void setShortestMatchProds(SetMultimap<Symbol, IProduction> shortestMatchProds) {
+        this.shortestMatchProds = shortestMatchProds;
     }
 
 }

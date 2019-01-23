@@ -293,10 +293,18 @@ public class GrammarReader {
                 }
 
                 for(IAttribute a : attrs) {
-                    if(a.toString().equals("nlm")) {
+
+                    if(a.toString().equals("longest-match")
+                        && Symbol.isListNonTerminal(prod.rightHand().get(prod.rightHand().size() - 1))) {
                         grammar.getLongestMatchProds().put(prod.rightHand().get(prod.rightHand().size() - 1), prod);
                     }
+                    if(a.toString().equals("shortest-match")
+                        && Symbol.isListNonTerminal(prod.rightHand().get(prod.rightHand().size() - 1))) {
+                        grammar.getShortestMatchProds().put(prod.rightHand().get(prod.rightHand().size() - 1), prod);
+                    }
+
                     grammar.getProductionAttributesMapping().put(prod, a);
+
                 }
 
                 if(grammar != null && symbol != null) {
@@ -305,6 +313,10 @@ public class GrammarReader {
 
                 grammar.getSymbolProductionsMapping().put(symbol, prod);
                 grammar.getUniqueProductionMapping().put(unique_prod, prod);
+
+                if(cons != null) {
+                    grammar.getConstructors().put(prod, cons_attr);
+                }
 
                 return prod;
             } else {
@@ -355,8 +367,7 @@ public class GrammarReader {
                     symbol = new AltSymbol(processSymbol(app.getSubterm(0)), processSymbol(app.getSubterm(1)));
                     break;
                 case "Sequence":
-                    symbol = new SequenceSymbol(processSymbol(app.getSubterm(0)),
-                        processSymbolList(app.getSubterm(1)));
+                    symbol = new SequenceSymbol(processSymbol(app.getSubterm(0)), processSymbolList(app.getSubterm(1)));
                     break;
                 case "Iter":
                     symbol = new IterSymbol(processSymbol(app.getSubterm(0)));
@@ -365,12 +376,10 @@ public class GrammarReader {
                     symbol = new IterStarSymbol(processSymbol(app.getSubterm(0)));
                     break;
                 case "IterSep":
-                    symbol =
-                        new IterSepSymbol(processSymbol(app.getSubterm(0)), processSymbol(app.getSubterm(1)));
+                    symbol = new IterSepSymbol(processSymbol(app.getSubterm(0)), processSymbol(app.getSubterm(1)));
                     break;
                 case "IterStarSep":
-                    symbol =
-                        new IterStarSepSymbol(processSymbol(app.getSubterm(0)), processSymbol(app.getSubterm(1)));
+                    symbol = new IterStarSepSymbol(processSymbol(app.getSubterm(0)), processSymbol(app.getSubterm(1)));
                     break;
                 case "Lex":
                     symbol = new LexicalSymbol(processSymbol(app.getSubterm(0)));
@@ -493,6 +502,8 @@ public class GrammarReader {
                     return new GeneralAttribute("enforce-newline");
                 case "LongestMatch":
                     return new GeneralAttribute("longest-match");
+                case "ShortestMatch":
+                    return new GeneralAttribute("shortest-match");
                 case "CaseInsensitive":
                     return new GeneralAttribute("case-insensitive");
                 case "Deprecated":
@@ -507,8 +518,6 @@ public class GrammarReader {
                     return new GeneralAttribute("placeholder-insertion");
                 case "LiteralCompletion":
                     return new GeneralAttribute("literal-completion");
-                case "NewLongestMatch":
-                    return new GeneralAttribute("nlm");
                 case "Term":
                     IStrategoTerm def = a.getSubterm(0);
                     IStrategoAppl term = (IStrategoAppl) def.getSubterm(0);
