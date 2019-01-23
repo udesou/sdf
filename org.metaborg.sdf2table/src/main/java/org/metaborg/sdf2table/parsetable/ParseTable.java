@@ -1,6 +1,7 @@
 package org.metaborg.sdf2table.parsetable;
 
 import java.io.Serializable;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
@@ -14,12 +15,17 @@ import org.metaborg.sdf2table.deepconflicts.ContextType;
 import org.metaborg.sdf2table.deepconflicts.ContextualProduction;
 import org.metaborg.sdf2table.deepconflicts.ContextualSymbol;
 import org.metaborg.sdf2table.deepconflicts.DeepConflictsAnalyzer;
+import org.metaborg.sdf2table.grammar.ContextFreeSymbol;
 import org.metaborg.sdf2table.grammar.GeneralAttribute;
+import org.metaborg.sdf2table.grammar.IAttribute;
 import org.metaborg.sdf2table.grammar.IPriority;
 import org.metaborg.sdf2table.grammar.IProduction;
+import org.metaborg.sdf2table.grammar.LexicalSymbol;
 import org.metaborg.sdf2table.grammar.NormGrammar;
 import org.metaborg.sdf2table.grammar.Priority;
 import org.metaborg.sdf2table.grammar.Symbol;
+import org.metaborg.util.log.ILogger;
+import org.metaborg.util.log.LoggerUtils;
 
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
@@ -33,6 +39,8 @@ import com.google.common.collect.Sets;
 public class ParseTable implements IParseTable, Serializable {
 
     private static final long serialVersionUID = -1845408435423897026L;
+
+    private static final ILogger logger = LoggerUtils.logger(ParseTable.class);
 
     public static final int FIRST_PRODUCTION_LABEL = 257;
     public static final int INITIAL_STATE_NUMBER = 0;
@@ -92,9 +100,12 @@ public class ParseTable implements IParseTable, Serializable {
         // create labels for productions
         createLabels();
 
+        // verify possible ambiguities due to missing priorities
+        checkMissingPriorities();
+
         // calculate deep priority conflicts based on current priorities
         // and generate contextual productions
-        if (solveDeepConflicts) {
+        if(solveDeepConflicts) {
             final DeepConflictsAnalyzer analysis = DeepConflictsAnalyzer.fromParseTable(this);
             analysis.patchParseTable();
 
@@ -119,7 +130,11 @@ public class ParseTable implements IParseTable, Serializable {
         do {
             markedNullable = false;
             for(IProduction p : grammar.getUniqueProductionMapping().values()) {
-                if(grammar.getProductionAttributesMapping().get(p).contains(new GeneralAttribute("recover"))) {
+                if(grammar.getProductionAttributesMapping().get(p).contains(new GeneralAttribute("recover"))
+                    || grammar.getProductionAttributesMapping().get(p)
+                        .contains(new GeneralAttribute("placeholder-insertion"))
+                    || grammar.getProductionAttributesMapping().get(p)
+                        .contains(new GeneralAttribute("literal-completion"))) {
                     continue;
                 }
                 if(p.rightHand().isEmpty() && !p.leftHand().isNullable()) {
@@ -247,6 +262,22 @@ public class ParseTable implements IParseTable, Serializable {
 
     private void normalizePriorities() {
 
+        // Add priority A+ = A+ A left A+ = A+ A to solve shortest-match
+        for(Symbol s : grammar.getShortestMatchProds().keys()) {
+            Set<IProduction> prods = grammar.getSymbolProductionsMapping().get(s);
+            // A+ = A+ A
+            IProduction concProd = null;
+            if(prods.size() == 2) {
+                for(IProduction list_p : prods) {
+                    if(list_p.rightHand().size() != 1) {
+                        concProd = list_p;
+                    }
+                }
+            }
+
+            grammar.priorities().put(new Priority(concProd, concProd, false), Integer.MAX_VALUE);
+        }
+
         normalizeAssociativePriorities();
 
         for(IPriority p : grammar.priorities().keySet()) {
@@ -302,9 +333,9 @@ public class ParseTable implements IParseTable, Serializable {
                         }
                         // }
                     }
-
+                    
                     // if p1 : A = E in E pos and p2 : A = E pos or p1 : A = E in E pos and p2 : A = E in E
-                    if(p.higher().rightRecursivePosition() == -1 && p.higher().leftRecursivePosition() != -1
+                    if(p.higher().leftRecursivePosition() != -1
                         && p.lower().leftRecursivePosition() != -1
                         && p.higher().rightHand().size() > p.lower().rightHand().size()) {
 
@@ -443,6 +474,177 @@ public class ParseTable implements IParseTable, Serializable {
         productionLabels = labels;
     }
 
+    private void checkMissingPriorities() {
+        SetMultimap<Symbol, IProduction> leftRecursive = HashMultimap.create();
+        SetMultimap<Symbol, IProduction> rightRecursive = HashMultimap.create();
+        Set<Symbol> recursiveSymbols = Sets.newHashSet();
+
+        // operator-style ambiguities due to lack of priorities
+        for(IProduction p : grammar.getUniqueProductionMapping().values()) {
+            if(p.leftRecursivePosition() != -1) {
+                leftRecursive.put(p.leftHand(), p);
+                recursiveSymbols.add(p.leftHand());
+            }
+            if(p.rightRecursivePosition() != -1) {
+                rightRecursive.put(p.leftHand(), p);
+                recursiveSymbols.add(p.leftHand());
+            }
+        }
+
+        SetMultimap<IProduction, IProduction> conflicts = HashMultimap.create();
+
+        for(Symbol s : recursiveSymbols) {
+            for(IProduction p1 : leftRecursive.get(s)) {
+                for(IProduction p2 : rightRecursive.get(s)) {
+                    if(p1.equals(p2)) {
+                        // if p1,p2: A+ -> A+ A, ambiguity might be longest-match
+                        if(Symbol.isListNonTerminal(p1.leftHand())) {
+                            continue;
+                        }
+
+                        // if p1 == p2 and there is no associativity declaration
+                        if(grammar.priorities().containsKey(new Priority(p1, p2, false))
+                            || grammar.priorities().containsKey(new Priority(p2, p1, false))) {
+                            continue;
+                        }
+
+                        if(!conflicts.get(p2).contains(p1)) {
+                            conflicts.put(p1, p2);
+                            logger.warn("GRAMMAR MAY CONTAIN AMBIGUITIES: No associativity declaration for production "
+                                + printWithConstructor(p1));
+                        }
+                    } else {
+                        // if p1: A+ -> A+ A and p2: A+ -> A, ambiguity might be longest-match
+                        if(Symbol.isListNonTerminal(p1.leftHand()) || Symbol.isListNonTerminal(p2.leftHand())) {
+                            continue;
+                        }
+
+                        // if p1 != p2 and there is no priority declaration between p1 and p2
+                        if(grammar.priorities().containsKey(new Priority(p1, p2, false))
+                            || grammar.priorities().containsKey(new Priority(p2, p1, false))) {
+                            continue;
+                        }
+
+                        if(!conflicts.get(p2).contains(p1)) {
+                            conflicts.put(p1, p2);
+                            logger.warn("GRAMMAR MAY CONTAIN AMBIGUITIES: No priority declaration between productions "
+                                + printWithConstructor(p1) + " and " + printWithConstructor(p2));
+                        }
+                    }
+                }
+            }
+        }
+
+
+        for(Symbol s : recursiveSymbols) {
+            for(IProduction p1 : leftRecursive.get(s)) {
+                for(IProduction p2 : leftRecursive.get(s)) {
+                    if(p1 != p2 && matchSuffix(p1, p2)) {
+                        // if p1 != p2, p1 and p2 have matching prefixes, and
+                        // there is no priority declaration between p1 and p2
+
+                        if(grammar.priorities().containsKey(new Priority(p1, p2, false))
+                            || grammar.priorities().containsKey(new Priority(p2, p1, false))) {
+                            continue;
+                        }
+
+                        if(!conflicts.get(p2).contains(p1)) {
+                            conflicts.put(p1, p2);
+                            logger.warn("GRAMMAR MAY CONTAIN AMBIGUITIES: No priority declaration between productions "
+                                + printWithConstructor(p1) + " and " + printWithConstructor(p2));
+                        }
+                    }
+                }
+
+            }
+
+            for(IProduction p1 : rightRecursive.get(s)) {
+                if(isNonAnnotatedLongestMatchList(p1)) {
+                    logger.warn(
+                        "GRAMMAR MAY CONTAIN AMBIGUITIES: No longest match or shortest match annotation on production "
+                            + printWithConstructor(p1));
+                }
+
+
+
+                for(IProduction p2 : rightRecursive.get(s)) {
+                    if(p1 != p2 && matchPrefix(p1, p2)) {
+                        // if p1 != p2, p1 and p2 have matching suffixes, and
+                        // there is no priority declaration between p1 and p2
+
+                        if(grammar.priorities().containsKey(new Priority(p1, p2, false))
+                            || grammar.priorities().containsKey(new Priority(p2, p1, false))) {
+                            continue;
+                        }
+
+                        if(!conflicts.get(p2).contains(p1)) {
+                            conflicts.put(p1, p2);
+                            logger.warn("GRAMMAR MAY CONTAIN AMBIGUITIES: No priority declaration between productions "
+                                + printWithConstructor(p1) + " and " + printWithConstructor(p2));
+                        }
+                    }
+                }
+            }
+        }
+
+
+
+    }
+
+    private boolean isNonAnnotatedLongestMatchList(IProduction p) {
+        if(!Symbol.isListNonTerminal(p.leftHand())) {
+            Symbol lastSymbol = p.rightHand().get(p.rightHand().size() - 1);
+            if(Symbol.isListNonTerminal(lastSymbol)) {
+                Set<IAttribute> attrs = grammar.getProductionAttributesMapping().get(p);
+                for(IAttribute attr : attrs) {
+                    if(attr instanceof GeneralAttribute && (((GeneralAttribute) attr).getName().equals("longest-match")
+                        || ((GeneralAttribute) attr).getName().equals("shortest-match"))) {
+                        return false;
+                    }
+                }
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean matchSuffix(IProduction p1, IProduction p2) {
+        int index = -1;
+
+        if(p1.rightHand().size() > p2.rightHand().size()) {
+            index = Collections.indexOfSubList(p1.rightHand(), p2.rightHand());
+            return index > 0 && index == p1.rightHand().size() - p2.rightHand().size();
+        } else {
+            index = Collections.indexOfSubList(p2.rightHand(), p1.rightHand());
+            return index > 0 && index == p2.rightHand().size() - p1.rightHand().size();
+        }
+
+    }
+
+    private boolean matchPrefix(IProduction p1, IProduction p2) {
+        int index = Collections.indexOfSubList(p1.rightHand(), p2.rightHand());
+        return index == 0;
+    }
+
+    private String printWithConstructor(IProduction p) {
+        Symbol s = p.leftHand();
+        String symbolName;
+
+        if(s instanceof ContextFreeSymbol) {
+            symbolName = ((ContextFreeSymbol) s).getSymbol().name();
+        } else if(s instanceof LexicalSymbol) {
+            symbolName = ((LexicalSymbol) s).getSymbol().name();
+        } else {
+            symbolName = s.name();
+        }
+
+        if(grammar.getConstructors().containsKey(p)) {
+            return symbolName + "." + grammar.getConstructors().get(p).getConstructor();
+        } else {
+            return p.toString();
+        }
+    }
+
     private void updateLabelsContextualProductions() {
         BiMap<IProduction, Integer> labels = productionLabels;
 
@@ -450,7 +652,7 @@ public class ParseTable implements IParseTable, Serializable {
             deriveContextualProductions();
 
             for(IProduction p : grammar.getUniqueProductionMapping().values()) {
-                if (grammar.getProdContextualProdMapping().containsKey(p)) {
+                if(grammar.getProdContextualProdMapping().containsKey(p)) {
                     labels.inverse().put(labels.get(p), grammar.getProdContextualProdMapping().get(p));
                 }
             }
@@ -472,7 +674,7 @@ public class ParseTable implements IParseTable, Serializable {
             }
 
             for(IProduction p : grammar.getUniqueProductionMapping().values()) {
-                if (grammar.getProdContextualProdMapping().containsKey(p)) {
+                if(grammar.getProdContextualProdMapping().containsKey(p)) {
                     labels.inverse().put(labels.get(p), grammar.getProdContextualProdMapping().get(p));
                 }
             }
@@ -520,8 +722,10 @@ public class ParseTable implements IParseTable, Serializable {
                 int labelP = productionLabels.get(p);
 
                 // generate new productions for deep contexts
-                Context deepLeft_ctx = new Context(labelP, ContextType.DEEP, ContextPosition.LEFTMOST, false, leftmostContextsMapping, rightmostContextsMapping);
-                Context deepRight_ctx = new Context(labelP, ContextType.DEEP, ContextPosition.RIGHTMOST, false, leftmostContextsMapping, rightmostContextsMapping);
+                Context deepLeft_ctx = new Context(labelP, ContextType.DEEP, ContextPosition.LEFTMOST, false,
+                    leftmostContextsMapping, rightmostContextsMapping);
+                Context deepRight_ctx = new Context(labelP, ContextType.DEEP, ContextPosition.RIGHTMOST, false,
+                    leftmostContextsMapping, rightmostContextsMapping);
                 if(ctx_s.getContexts().contains(deepLeft_ctx) || ctx_s.getContexts().contains(deepRight_ctx)) {
                     continue;
                 }

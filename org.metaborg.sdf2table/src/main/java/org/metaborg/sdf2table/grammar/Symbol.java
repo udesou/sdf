@@ -97,6 +97,21 @@ public abstract class Symbol implements Serializable {
 
         followRestrictionsLookahead.removeAll(redundantFRLookahead);
     }
+    
+    public static boolean isListNonTerminal(Symbol s) {
+        if(s instanceof ContextFreeSymbol) {
+            s = ((ContextFreeSymbol) s).getSymbol();
+        } else if(s instanceof LexicalSymbol) {
+            s = ((LexicalSymbol) s).getSymbol();
+        }
+
+        if(s instanceof IterSepSymbol || s instanceof IterStarSepSymbol || s instanceof IterStarSymbol
+            || s instanceof IterSymbol) {
+            return true;
+        }
+
+        return false;
+    }
 
     public abstract int hashCode();
 
