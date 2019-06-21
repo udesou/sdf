@@ -20,10 +20,20 @@ import org.metaborg.sdf2table.grammar.GeneralAttribute;
 import org.metaborg.sdf2table.grammar.IAttribute;
 import org.metaborg.sdf2table.grammar.IPriority;
 import org.metaborg.sdf2table.grammar.IProduction;
+import org.metaborg.sdf2table.grammar.IterSepSymbol;
+import org.metaborg.sdf2table.grammar.IterStarSepSymbol;
+import org.metaborg.sdf2table.grammar.IterStarSymbol;
+import org.metaborg.sdf2table.grammar.IterSymbol;
+import org.metaborg.sdf2table.grammar.Layout;
 import org.metaborg.sdf2table.grammar.LexicalSymbol;
 import org.metaborg.sdf2table.grammar.NormGrammar;
+import org.metaborg.sdf2table.grammar.OptionalSymbol;
 import org.metaborg.sdf2table.grammar.Priority;
+import org.metaborg.sdf2table.grammar.Sort;
 import org.metaborg.sdf2table.grammar.Symbol;
+import org.metaborg.sdf2table.util.CheckOverlap;
+import org.metaborg.sdf2table.util.Graph;
+import org.metaborg.sdf2table.util.SCCNodes;
 import org.metaborg.util.log.ILogger;
 import org.metaborg.util.log.LoggerUtils;
 
@@ -88,11 +98,18 @@ public class ParseTable implements IParseTable, Serializable {
         this.grammar = grammar;
         this.dataDependent = dataDependent;
 
+        // calculate strongly connected components to indentify mutually recursive symbols
+        SCCNodes<Symbol> scc = new SCCNodes<Symbol>(createGraphFromProductions());
+        scc.calculateSCCNodes();
+
         // calculate nullable symbols
         calculateNullable();
 
         // calculate left and right recursive productions (considering nullable symbols)
         calculateRecursion();
+
+        // extract expression grammars
+        extractExpressionGrammars(scc);
 
         // normalize priorities according to recursion
         normalizePriorities();
@@ -102,6 +119,9 @@ public class ParseTable implements IParseTable, Serializable {
 
         // verify possible ambiguities due to missing priorities
         checkMissingPriorities();
+
+        // calculate harmful overlap
+         checkHarmfulOverlap(scc);
 
         // calculate deep priority conflicts based on current priorities
         // and generate contextual productions
@@ -333,10 +353,9 @@ public class ParseTable implements IParseTable, Serializable {
                         }
                         // }
                     }
-                    
+
                     // if p1 : A = E in E pos and p2 : A = E pos or p1 : A = E in E pos and p2 : A = E in E
-                    if(p.higher().leftRecursivePosition() != -1
-                        && p.lower().leftRecursivePosition() != -1
+                    if(p.higher().leftRecursivePosition() != -1 && p.lower().leftRecursivePosition() != -1
                         && p.higher().rightHand().size() > p.lower().rightHand().size()) {
 
                         // p1 : A = E in E pos and p2 : A = E in E
@@ -464,6 +483,91 @@ public class ParseTable implements IParseTable, Serializable {
      * while(t != v); components.add(component); } }
      */
 
+    private void extractExpressionGrammars(SCCNodes<Symbol> scc) {
+
+
+
+        for(Symbol s : grammar.getSymbols()) {
+
+            if(isListSymbol(s) || isLayoutSymbol(s)) {
+                continue;
+            }
+
+            // if p is (indirectly) recursive then p in Exp(s)
+            for(IProduction p : grammar.getSymbolProductionsMapping().get(s)) {
+                for(Symbol rhs_symb : p.rightHand()) {
+                    if(rhs_symb.equals(s)) {
+                        grammar.getExpressionGrammars().put(s, p);
+                    } else if(scc.getNodesMapping().get(s) != null && scc.getNodesMapping().get(s).contains(rhs_symb)) {
+                        grammar.getExpressionGrammars().put(s, p);
+                    }
+                }
+            }
+        }
+
+        // if s is mutually recursive with s2, then combine Exp(s,s2) = Exp(s) ++ Exp(s2)
+        for(Symbol nonTerminalExpGrammar : grammar.getExpressionGrammars().keys()) {
+
+            Set<Symbol> symbs = Sets.newHashSet(nonTerminalExpGrammar);
+            if(scc.getNodesMapping().get(nonTerminalExpGrammar) != null) {
+                symbs.addAll(scc.getNodesMapping().get(nonTerminalExpGrammar));
+            }
+
+            Set<IProduction> combinedGrammars = Sets.newHashSet();
+            for(Symbol recursive : symbs) {
+                combinedGrammars.addAll(grammar.getExpressionGrammars().get(recursive));
+            }
+            grammar.getCombinedExpressionGrammars().add(combinedGrammars);
+
+        }
+    }
+
+    private Graph<Symbol> createGraphFromProductions() {
+
+        Graph<Symbol> result = new Graph<Symbol>(grammar.getSymbols());
+        for(Symbol s : grammar.getSymbols()) {
+            for(IProduction p : grammar.getSymbolProductionsMapping().get(s)) {
+                for(Symbol rhs_symb : p.rightHand()) {
+                    result.addEdge(s, rhs_symb);
+                }
+            }
+        }
+
+        return result;
+    }
+
+    private boolean isLayoutSymbol(Symbol s) {
+        boolean isLayout = false;
+        if(s instanceof ContextFreeSymbol) {
+            s = ((ContextFreeSymbol) s).getSymbol();
+        }
+        if(s instanceof OptionalSymbol) {
+            s = ((OptionalSymbol) s).getSymbol();
+        }
+        if(s instanceof LexicalSymbol) {
+            s = ((LexicalSymbol) s).getSymbol();
+        }
+        if(s instanceof Layout) {
+            isLayout = true;
+        }
+        return isLayout;
+    }
+
+    private boolean isListSymbol(Symbol s) {
+        if(s instanceof OptionalSymbol) {
+            s = ((OptionalSymbol) s).getSymbol();
+        }
+        if(s instanceof ContextFreeSymbol) {
+            s = ((ContextFreeSymbol) s).getSymbol();
+        }
+        if(s instanceof LexicalSymbol) {
+            s = ((LexicalSymbol) s).getSymbol();
+        }
+
+        return (s instanceof IterSymbol) || (s instanceof IterStarSymbol) || (s instanceof IterStarSepSymbol)
+            || (s instanceof IterSepSymbol);
+    }
+
     private void createLabels() {
         BiMap<IProduction, Integer> labels = HashBiMap.create();
 
@@ -515,7 +619,8 @@ public class ParseTable implements IParseTable, Serializable {
                         }
                     } else {
                         // if p1: A+ -> A+ A and p2: A+ -> A, ambiguity might be longest-match
-                        if(Symbol.isListNonTerminal(p1.leftHand()) || Symbol.isListNonTerminal(p2.leftHand())) {
+                        if(Symbol.isListNonTerminal(p1.leftHand()) || Symbol.isListNonTerminal(p2.leftHand())
+                            || p2.rightHand().size() == 1 || p1.rightHand().size() == 1) {
                             continue;
                         }
 
@@ -589,6 +694,189 @@ public class ParseTable implements IParseTable, Serializable {
 
 
 
+    }
+
+    private void checkHarmfulOverlap(SCCNodes<Symbol> scc) {
+        // for each expression grammar check productions with any overlap at all
+        for(Set<IProduction> expProds : grammar.getCombinedExpressionGrammars()) {
+            Set<IProduction> emptyOperatorOverlappingProds = Sets.newHashSet();
+
+            Set<Symbol> literals = Sets.newHashSet();
+
+            // collect literals to check for overlap
+            for(IProduction p : expProds) {
+                boolean emptyOperatorOverlap = false;
+
+                for(Symbol s : p.rightHand()) {
+                    if(s instanceof Sort && ((Sort) s).getType() != null) {
+                        literals.add(s);
+                    }
+                    // if there are two consecutive recursive non-terminals the production
+                    // has overlap using the empty string
+                    if(s.equals(p.leftHand()) || (scc.getNodesMapping().get(p.leftHand()) != null
+                        && scc.getNodesMapping().get(p.leftHand()).contains(s))) {
+                        if(emptyOperatorOverlap) {
+                            emptyOperatorOverlappingProds.add(p);
+                        } else {
+                            emptyOperatorOverlap = true;
+                        }
+                    } else if(!s.isNullable()) {
+                        emptyOperatorOverlap = false;
+                    }
+                }
+            }
+
+            // check expression productions with any overlap at all
+            Set<Symbol> literalsConsidered = Sets.newHashSet();
+
+            for(Symbol lit : literals) {
+                boolean detectedHarmfulOverlap = false;
+
+                if(literalsConsidered.contains(lit)) {
+                    continue;
+                } else {
+                    literalsConsidered.add(lit);
+                }
+
+
+                // add productions that have any overlap
+                Set<IProduction> overlappingProds = Sets.newHashSet(emptyOperatorOverlappingProds);
+
+                if(grammar.getLiteralProductionsMapping().get(lit).size() > 1) {
+                    // add all overlapping productions that are recursive
+                    for(IProduction overlappingProd : grammar.getLiteralProductionsMapping().get(lit)) {
+                        if(expProds.contains(overlappingProd)) {
+                            overlappingProds.add(overlappingProd);
+                        }
+                    }
+
+                    Queue<Symbol> otherLits = Queues.newArrayDeque();
+
+                    for(IProduction p : overlappingProds) {
+                        for(Symbol symb_rhs : p.rightHand()) {
+                            if(symb_rhs instanceof Sort && ((Sort) symb_rhs).getType() != null
+                                && !literalsConsidered.contains(symb_rhs)) {
+                                otherLits.add(symb_rhs);
+                            }
+                        }
+                    }
+
+                    while(!otherLits.isEmpty()) {
+                        Symbol otherLit = otherLits.remove();
+
+                        if(literalsConsidered.contains(otherLit)) {
+                            continue;
+                        } else {
+                            literalsConsidered.add(otherLit);
+                        }
+
+                        for(IProduction p : grammar.getLiteralProductionsMapping().get(otherLit)) {
+                            if(expProds.contains(p)) {
+                                overlappingProds.add(p);
+                                for(Symbol symb_rhs : p.rightHand()) {
+                                    if(symb_rhs instanceof Sort && ((Sort) symb_rhs).getType() != null
+                                        && !literalsConsidered.contains(symb_rhs)) {
+                                        otherLits.add(symb_rhs);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // check if overlap is harmful 
+                // FIXME do not consider subsets (currently limit checking subsets to 5 overlapping productions)
+                if(overlappingProds.size() > 1) {
+                    // explore all subsets P and Q with |P| > 0 or |Q| > 0 and P not equal Q
+                    List<Set<IProduction>> subsets = powerSet(overlappingProds);
+
+                    for(int i = 0; i < subsets.size(); i++) {
+                        Set<IProduction> P = subsets.get(i);
+                        for(int j = i; j < subsets.size(); j++) {
+                            Set<IProduction> Q = subsets.get(j);
+                            Set<IProduction> intersection = Sets.newHashSet(P);
+                            intersection.retainAll(Q);
+                            if(P.equals(Q) || intersection.equals(P) || intersection.equals(Q)
+                                || !containsSameOperators(P, Q)) {
+                                continue;
+                            } else {
+                                // check if there is w such that w in L(P) and w in L(Q) with different trees
+                                CheckOverlap checkOverlap = new CheckOverlap(P, Q, 5, scc);
+                                String sentence = checkOverlap.checkHarmfulOverlap();
+
+                                if(sentence != null) {
+                                    String prods = "";
+                                    for(IProduction p : overlappingProds) {
+                                        prods += printWithConstructor(p) + " ";
+                                    }
+
+                                    detectedHarmfulOverlap = true;
+
+                                    logger.warn("GRAMMAR MAY CONTAIN AMBIGUITIES: Harmful overlap with the sentence "
+                                        + sentence + " between the productions: " + prods);
+
+                                    break;
+                                }
+                            }
+                        }
+                        if(detectedHarmfulOverlap) {
+                            break;
+                        }
+
+                    }
+                }
+
+                if(detectedHarmfulOverlap) {
+                    continue;
+                }
+
+            }
+        }
+
+
+    }
+
+    private boolean containsSameOperators(Set<IProduction> p, Set<IProduction> q) {
+        Set<Symbol> operatorsP = Sets.newHashSet();
+        Set<Symbol> operatorsQ = Sets.newHashSet();
+
+        for(IProduction prods : p) {
+            for(Symbol symb_rhs : prods.rightHand()) {
+                if(symb_rhs instanceof Sort && ((Sort) symb_rhs).getType() != null) {
+                    operatorsP.add(symb_rhs);
+                }
+            }
+        }
+
+        for(IProduction prods : q) {
+            for(Symbol symb_rhs : prods.rightHand()) {
+                if(symb_rhs instanceof Sort && ((Sort) symb_rhs).getType() != null) {
+                    operatorsQ.add(symb_rhs);
+                }
+            }
+        }
+
+        return operatorsP.equals(operatorsQ);
+    }
+
+    private List<Set<IProduction>> powerSet(Set<IProduction> set) {
+        IProduction[] element = new IProduction[set.size()];
+        set.toArray(element);
+        final int SET_LENGTH = 1 << element.length;
+        List<Set<IProduction>> powerSet = Lists.newArrayList();
+        for(int binarySet = 0; binarySet < SET_LENGTH; binarySet++) {
+            Set<IProduction> subset = Sets.newHashSet();
+            for(int bit = 0; bit < element.length; bit++) {
+                int mask = 1 << bit;
+                if((binarySet & mask) != 0) {
+                    subset.add(element[bit]);
+                }
+            }
+            if(subset.size() > 0) {
+                powerSet.add(subset);
+            }
+        }
+        return powerSet;
     }
 
     private boolean isNonAnnotatedLongestMatchList(IProduction p) {
