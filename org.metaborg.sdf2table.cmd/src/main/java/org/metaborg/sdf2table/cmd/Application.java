@@ -11,15 +11,15 @@ import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
 
-import org.metaborg.sdf2table.core.Benchmark;
-import org.metaborg.sdf2table.grammar.Module;
-import org.metaborg.sdf2table.grammar.ModuleNotFoundException;
-import org.metaborg.sdf2table.grammar.Syntax;
-import org.metaborg.sdf2table.grammar.UndefinedSymbolException;
-import org.metaborg.sdf2table.io.Parenthesizer;
-import org.metaborg.sdf2table.parsetable.Label;
-import org.metaborg.sdf2table.parsetable.ParseTable;
-import org.metaborg.sdf2table.parsetable.State;
+import org.metaborg.sdf2table.parsetable.core.Benchmark;
+import org.metaborg.sdf2table.parsetable.grammar.Module;
+import org.metaborg.sdf2table.parsetable.grammar.ModuleNotFoundException;
+import org.metaborg.sdf2table.parsetable.grammar.Syntax;
+import org.metaborg.sdf2table.parsetable.grammar.UndefinedSymbolException;
+import org.metaborg.sdf2table.parsetable.io.Parenthesizer;
+import org.metaborg.sdf2table.parsetable.parsetable.Label;
+import org.metaborg.sdf2table.parsetable.parsetable.ParseTable;
+import org.metaborg.sdf2table.parsetable.parsetable.State;
 import org.spoofax.interpreter.terms.IStrategoTerm;
 import org.spoofax.terms.TermFactory;
 

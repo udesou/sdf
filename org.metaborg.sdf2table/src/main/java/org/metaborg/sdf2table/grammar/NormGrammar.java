@@ -21,6 +21,8 @@ import com.google.common.collect.Sets;
 public class NormGrammar implements INormGrammar, Serializable {
 
     private static final long serialVersionUID = -13739894962185282L;
+    
+    private int inputPriorities = 0;
 
     // all files used in this grammar
     private Set<File> filesRead;
@@ -66,6 +68,22 @@ public class NormGrammar implements INormGrammar, Serializable {
 
     // get all productions for a certain symbol
     private SetMultimap<Symbol, IProduction> symbolProductionsMapping;
+    
+    // get all productions that contain a particular literal
+    private SetMultimap<Symbol, IProduction> literalProductionsMapping;
+    
+    // expression grammars per non-terminal
+    private SetMultimap<Symbol, IProduction> expressionGrammars;
+    
+    // expression grammars collapsed
+    private Set<Set<IProduction>> combinedExpressionGrammars;
+    
+    
+    // indirectly recursive symbols
+    private SetMultimap<Symbol, Symbol> indirectlyRecursive;
+    
+    // non-recursive symbols
+    private SetMultimap<Symbol, Symbol> nonRecursive;
 
     public NormGrammar() {
         this.setFilesRead(Sets.newHashSet());
@@ -88,6 +106,11 @@ public class NormGrammar implements INormGrammar, Serializable {
         this.setNonTransitivePriorityArgs(HashMultimap.create());
         this.setHigherPriorityProductions(HashMultimap.create());
         this.setSymbolProductionsMapping(HashMultimap.create());
+        this.setLiteralProductionsMapping(HashMultimap.create());
+        this.setExpressionGrammars(HashMultimap.create());
+        this.setCombinedExpressionGrammars(Sets.newHashSet());
+        this.setIndirectlyRecursive(HashMultimap.create());
+        this.setNonRecursive(HashMultimap.create());
         this.setCacheSymbolsRead(Maps.newHashMap());
         this.setCacheProductionsRead(Maps.newHashMap());
         this.setSymbols(Sets.newHashSet());
@@ -340,6 +363,16 @@ public class NormGrammar implements INormGrammar, Serializable {
     }
 
 
+    public SetMultimap<Symbol, IProduction> getLiteralProductionsMapping() {
+        return literalProductionsMapping;
+    }
+
+
+    public void setLiteralProductionsMapping(SetMultimap<Symbol, IProduction> literalProductionsMapping) {
+        this.literalProductionsMapping = literalProductionsMapping;
+    }
+
+
     public SetMultimap<IProduction, IPriority> getHigherPriorityProductions() {
         return higherPriorityProductions;
     }
@@ -376,5 +409,55 @@ public class NormGrammar implements INormGrammar, Serializable {
     public void setShortestMatchProds(SetMultimap<Symbol, IProduction> shortestMatchProds) {
         this.shortestMatchProds = shortestMatchProds;
     }
+
+
+    public SetMultimap<Symbol, IProduction> getExpressionGrammars() {
+        return expressionGrammars;
+    }
+
+
+    public void setExpressionGrammars(SetMultimap<Symbol, IProduction> expressionGrammars) {
+        this.expressionGrammars = expressionGrammars;
+    }
+
+
+    public SetMultimap<Symbol, Symbol> getIndirectlyRecursive() {
+        return indirectlyRecursive;
+    }
+
+
+    public void setIndirectlyRecursive(SetMultimap<Symbol, Symbol> indirectlyRecursive) {
+        this.indirectlyRecursive = indirectlyRecursive;
+    }
+
+
+    public SetMultimap<Symbol, Symbol> getNonRecursive() {
+        return nonRecursive;
+    }
+
+
+    public void setNonRecursive(SetMultimap<Symbol, Symbol> nonRecursive) {
+        this.nonRecursive = nonRecursive;
+    }
+
+
+    public Set<Set<IProduction>> getCombinedExpressionGrammars() {
+        return combinedExpressionGrammars;
+    }
+
+
+    public void setCombinedExpressionGrammars(Set<Set<IProduction>> combinedExpressionGrammars) {
+        this.combinedExpressionGrammars = combinedExpressionGrammars;
+    }
+
+
+	public int getInputPriorities() {
+		return inputPriorities;
+	}
+
+
+	public void setInputPriorities(int inputPriorities) {
+		this.inputPriorities = inputPriorities;
+	}
 
 }

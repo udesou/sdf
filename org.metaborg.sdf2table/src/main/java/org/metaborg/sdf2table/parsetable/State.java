@@ -17,7 +17,6 @@ import org.metaborg.sdf2table.grammar.Symbol;
 import org.metaborg.sdf2table.parsetable.query.ActionsForCharacterDisjointSorted;
 import org.metaborg.sdf2table.parsetable.query.ActionsPerCharacterClass;
 import org.metaborg.sdf2table.parsetable.query.IActionsForCharacter;
-
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.SetMultimap;

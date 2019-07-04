@@ -39,9 +39,14 @@ public class Sort extends Symbol {
             return "\"" + name + "\"";
     }
 
+    public String getSortName() {
+        return name;
+    }
+
     public LiteralType getType() {
         return type;
     }
+
 
     @Override public IStrategoTerm toAterm(ITermFactory tf) {
         if(type == LiteralType.CiLit) {

@@ -484,9 +484,7 @@ public class ParseTable implements IParseTable, Serializable {
      */
 
     private void extractExpressionGrammars(SCCNodes<Symbol> scc) {
-
-
-
+        
         for(Symbol s : grammar.getSymbols()) {
 
             if(isListSymbol(s) || isLayoutSymbol(s)) {
